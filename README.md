@@ -120,6 +120,10 @@ http://localhost:8000/admin/ (the site root redirects there).
 For production (`DEBUG=False`) run `python manage.py collectstatic` after each
 deploy; WhiteNoise serves the files, so the web server needs no extra setup.
 
+## Deploying on Plesk
+
+Step-by-step guide: [docs/DEPLOY_PLESK.md](docs/DEPLOY_PLESK.md). Updates afterwards: `./deploy.sh`.
+
 ## Not built yet
 
 Reminder run, API, PDFs and the React UI. Accounting export is out of scope for
