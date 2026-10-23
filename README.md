@@ -46,7 +46,7 @@ python manage.py migrate
 python manage.py seed_tenant "WEDEVA" wedeva
 python manage.py createsuperuser
 python manage.py runserver        # admin at http://localhost:8000/admin/
-python manage.py test apps        # 16 rule tests, needs PostgreSQL
+python manage.py test apps        # 37 tests, needs PostgreSQL
 ```
 
 `seed_tenant` creates the five roles, Greek VAT categories (24, 13, 6, island
@@ -54,8 +54,28 @@ python manage.py test apps        # 16 rule tests, needs PostgreSQL
 Support department and numbering prefixes. Confirm the VAT and SLA values
 before the first billing run.
 
-## Not in this commit
+## Billing run
 
-Billing run, reminder run, audit-log writer, permissions per role, API,
-CSV export mapping, PDFs and the React UI. Jira links and myDATA come after
-the beta.
+`python manage.py run_billing [--tenant wedeva] [--until YYYY-MM-DD] [--terms 14]`
+
+Bills in advance every subscription period and domain renewal that starts on
+or before `--until` (default today), then puts each customer's new items on
+one billing draft. Schedule it daily with cron. Every run is logged in
+Scheduled runs (admin), where an Admin can retry a failed run.
+
+- Idempotent: re-running or retrying never bills a period twice
+- Catch-up: missed runs produce one item per missed period
+- Anchor days 29 to 31 clamp to the month's last day, then return
+- Price changes apply from the period they are valid from
+- Suspended: periods are skipped; billing resumes from the next period, no back-billing
+- Overdue Payment: billing holds and catches up once Active again, unless
+  "keep active when overdue" is set, which keeps billing
+- Cancelled: periods starting after the effective date are not billed
+- Domains with auto-renew bill one item per renewal term
+- A draft line carries the project only when the subscription belongs to exactly one project
+- An error on one subscription or domain is recorded and never blocks the others
+
+## Not built yet
+
+Reminder run, audit-log writer, permissions per role, API, CSV export
+mapping, PDFs and the React UI. Jira links and myDATA come after the beta.
