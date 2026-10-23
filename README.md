@@ -46,7 +46,7 @@ python manage.py migrate
 python manage.py seed_tenant "WEDEVA" wedeva
 python manage.py createsuperuser
 python manage.py runserver        # admin at http://localhost:8000/admin/
-python manage.py test apps        # 56 tests, needs PostgreSQL
+python manage.py test apps        # 63 tests, needs PostgreSQL
 ```
 
 `seed_tenant` creates the five roles, Greek VAT categories (24, 13, 6, island
@@ -99,6 +99,26 @@ admin offers approve, reopen, send, reissue and payment auto-allocation.
 Every create, update, delete and status change on ERGAVON records is written to
 the audit log with the user and the old and new values of the changed fields.
 Approvals, voids and allocations are labelled as such.
+
+## Admin (internal beta interface)
+
+The Django admin runs on the Unfold theme until the React UI exists:
+http://localhost:8000/admin/ (the site root redirects there).
+
+- Dashboard: outstanding and overdue amounts, drafts to approve, active and
+  overdue subscriptions, open tickets, unbilled items, overdue drafts,
+  renewals and domain expiries in the next 30 days, last billing run
+- Sidebar grouped as Billing, Customers, Services, Work and Settings
+- Billing draft page buttons: Approve, Reopen, Sent to accounting,
+  Mark invoiced (asks for the invoice number and date), Void (asks for a
+  reason), Reissue; drafts and payments can never be deleted
+- Payment page buttons: Allocate to a draft, Auto-allocate
+- Scheduled runs: "Run billing now" (Admin only) and retry
+- Account search ignores Greek accents and case
+- Audit log is read-only
+
+For production (`DEBUG=False`) run `python manage.py collectstatic` after each
+deploy; WhiteNoise serves the files, so the web server needs no extra setup.
 
 ## Not built yet
 

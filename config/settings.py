@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import environ
+from django.urls import reverse_lazy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -17,6 +18,11 @@ DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 INSTALLED_APPS = [
+    # Unfold admin theme: must come before django.contrib.admin
+    "unfold",
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
+    "unfold.contrib.inlines",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -37,6 +43,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # serves the admin's static files without extra server setup
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -89,6 +96,15 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # Hashed, compressed files in production (run collectstatic); plain files while developing
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        if DEBUG
+        else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
+}
 MEDIA_URL = "media/"
 MEDIA_ROOT = env("MEDIA_ROOT", default=str(BASE_DIR / "media"))  # attachments live outside the DB
 
@@ -101,3 +117,94 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
+
+
+# ---------------------------------------------------------------- admin (Unfold)
+
+
+def _nav(title, icon, name):
+    return {"title": title, "icon": icon, "link": reverse_lazy(f"admin:{name}_changelist")}
+
+
+UNFOLD = {
+    "SITE_TITLE": "ERGAVON",
+    "SITE_HEADER": "ERGAVON",
+    "SITE_SUBHEADER": "Billing and operations",
+    "SITE_SYMBOL": "receipt_long",
+    "SITE_URL": "/admin/",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": False,
+    "ENVIRONMENT": "apps.platform.dashboard.environment_callback",
+    "DASHBOARD_CALLBACK": "apps.platform.dashboard.dashboard_callback",
+    "COLORS": {
+        "primary": {
+            "50": "oklch(97.7% .014 245)", "100": "oklch(95.1% .026 245)", "200": "oklch(90.1% .058 245)",
+            "300": "oklch(82.8% .111 245)", "400": "oklch(74.6% .16 245)", "500": "oklch(68.5% .169 245)",
+            "600": "oklch(58.8% .158 245)", "700": "oklch(50% .134 245)", "800": "oklch(44.3% .11 245)",
+            "900": "oklch(39.1% .09 245)", "950": "oklch(29.3% .066 245)",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": "Billing",
+                "separator": True,
+                "items": [
+                    {"title": "Dashboard", "icon": "dashboard", "link": reverse_lazy("admin:index")},
+                    _nav("Billing drafts", "receipt_long", "billing_billingdraft"),
+                    _nav("Payments", "payments", "billing_payment"),
+                    _nav("Billable items", "list_alt", "billing_billableitem"),
+                    _nav("Scheduled runs", "schedule", "subscriptions_scheduledrun"),
+                ],
+            },
+            {
+                "title": "Customers",
+                "separator": True,
+                "items": [
+                    _nav("Accounts", "apartment", "crm_account"),
+                    _nav("Contacts", "contacts", "crm_contact"),
+                    _nav("Leads", "person_search", "crm_lead"),
+                    _nav("Opportunities", "trending_up", "crm_opportunity"),
+                    _nav("Activities", "event_note", "crm_activity"),
+                ],
+            },
+            {
+                "title": "Services",
+                "separator": True,
+                "items": [
+                    _nav("Subscriptions", "autorenew", "subscriptions_subscription"),
+                    _nav("Domains", "language", "subscriptions_domain"),
+                    _nav("Products", "inventory_2", "catalogue_product"),
+                    _nav("Quotes", "request_quote", "sales_quote"),
+                    _nav("Orders", "shopping_cart", "sales_order"),
+                ],
+            },
+            {
+                "title": "Work",
+                "separator": True,
+                "items": [
+                    _nav("Projects", "folder_open", "projects_project"),
+                    _nav("Tasks", "task_alt", "projects_task"),
+                    _nav("Time entries", "timer", "projects_timeentry"),
+                    _nav("Tickets", "support_agent", "support_ticket"),
+                    _nav("Calendar events", "calendar_month", "calendar_event"),
+                ],
+            },
+            {
+                "title": "Settings",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    _nav("Tax categories", "percent", "catalogue_taxcategory"),
+                    _nav("Assets", "devices", "catalogue_asset"),
+                    _nav("SLA policies", "timer_10_alert", "support_slapolicy"),
+                    _nav("Users", "person", "platform_user"),
+                    _nav("Custom fields", "tune", "platform_customfield"),
+                    _nav("Audit log", "history", "platform_auditlog"),
+                ],
+            },
+        ],
+    },
+}
