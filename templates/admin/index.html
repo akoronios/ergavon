@@ -1,0 +1,53 @@
+{% extends 'admin/base.html' %}
+{% load i18n unfold %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-8">
+
+    <div class="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+        {% for kpi in kpis %}
+            {% component "unfold/components/card.html" with href=kpi.href footer=kpi.footer %}
+                {% component "unfold/components/text.html" %}{{ kpi.title }}{% endcomponent %}
+                {% component "unfold/components/title.html" %}{{ kpi.metric }}{% endcomponent %}
+            {% endcomponent %}
+        {% endfor %}
+    </div>
+
+    <div class="grid gap-6 grid-cols-1 xl:grid-cols-2">
+        {% component "unfold/components/card.html" with title="Overdue drafts" %}
+            {% if overdue_drafts.rows %}
+                {% component "unfold/components/table.html" with table=overdue_drafts card_included=1 striped=1 %}{% endcomponent %}
+            {% else %}
+                {% component "unfold/components/text.html" %}Nothing is past due.{% endcomponent %}
+            {% endif %}
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Renewals and domain expiries, next 30 days" %}
+            {% if renewals.rows %}
+                {% component "unfold/components/table.html" with table=renewals card_included=1 striped=1 %}{% endcomponent %}
+            {% else %}
+                {% component "unfold/components/text.html" %}No renewals in the next 30 days.{% endcomponent %}
+            {% endif %}
+        {% endcomponent %}
+    </div>
+
+    {% component "unfold/components/card.html" with title="Last billing run" href=runs_url %}
+        {% if last_run %}
+            {% component "unfold/components/text.html" %}
+                {{ last_run.started_at|date:"d/m/Y H:i" }} · up to {{ last_run.period_end|date:"d/m/Y" }} ·
+                {{ last_run.get_status_display }} · {{ last_run.records_created }} records created
+                {% if last_run.errors %}· {{ last_run.errors|length }} errors{% endif %}
+            {% endcomponent %}
+        {% else %}
+            {% component "unfold/components/text.html" %}No billing run yet. Use "Run billing now" on the Scheduled runs page.{% endcomponent %}
+        {% endif %}
+    {% endcomponent %}
+
+</div>
+{% endblock %}
