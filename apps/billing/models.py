@@ -1,6 +1,7 @@
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
 
@@ -151,11 +152,29 @@ class BillingDraft(NumberedMixin, FinancialModel):
     def __str__(self):
         return self.number or str(self.pk)
 
+    # Once a draft leaves Draft its lines and totals are frozen; once Invoiced or
+    # Voided only the payment figures may still change (rule 9, FIN-01.3).
+    LOCKED_STATUSES = ("invoiced", "voided")
+    PAYMENT_FIELDS = {"paid", "outstanding", "payment_status", "updated_at", "updated_by"}
+
+    def save(self, *args, **kwargs):
+        if self.pk and not self._state.adding:
+            stored = BillingDraft.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            if stored in self.LOCKED_STATUSES:
+                fields = kwargs.get("update_fields")
+                if fields is None or set(fields) - self.PAYMENT_FIELDS:
+                    raise ValidationError(f"A {stored} billing draft is read-only.")
+        super().save(*args, **kwargs)
+
     def recalculate(self, save=True):
-        totals = self.lines.aggregate(net=Sum("net"), tax=Sum("tax"), gross=Sum("gross"))
-        self.net = totals["net"] or ZERO
-        self.tax = totals["tax"] or ZERO
-        self.gross = totals["gross"] or ZERO
+        """Totals from lines (only while Draft) and payment figures from allocations."""
+        fields = ["paid", "outstanding", "payment_status", "updated_at"]
+        if self.status == self.Status.DRAFT:
+            totals = self.lines.aggregate(net=Sum("net"), tax=Sum("tax"), gross=Sum("gross"))
+            self.net = totals["net"] or ZERO
+            self.tax = totals["tax"] or ZERO
+            self.gross = totals["gross"] or ZERO
+            fields += ["net", "tax", "gross"]
         self.paid = self.allocations.aggregate(s=Sum("amount"))["s"] or ZERO
         self.outstanding = self.gross - self.paid
         if self.paid <= ZERO:
@@ -165,7 +184,7 @@ class BillingDraft(NumberedMixin, FinancialModel):
         else:
             self.payment_status = self.PaymentStatus.PAID
         if save:
-            self.save()
+            self.save(update_fields=fields)
 
 
 class DraftLine(UUIDModel):
@@ -196,6 +215,19 @@ class DraftLine(UUIDModel):
                 nulls_distinct=False,
             )
         ]
+
+    def _check_editable(self):
+        status = BillingDraft.objects.filter(pk=self.draft_id).values_list("status", flat=True).first()
+        if status != BillingDraft.Status.DRAFT:
+            raise ValidationError("Lines can only change while the billing draft is in Draft.")
+
+    def save(self, *args, **kwargs):
+        self._check_editable()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        self._check_editable()
+        return super().delete(*args, **kwargs)
 
     def compute(self):
         self.net = round_money(self.qty * self.unit_price)

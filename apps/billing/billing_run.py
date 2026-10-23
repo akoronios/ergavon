@@ -250,6 +250,11 @@ def _execute(tenant: Tenant, until: date, payment_terms_days: int, result: RunRe
     with transaction.atomic():
         Tenant.objects.select_for_update().get(pk=tenant.pk)  # one run at a time per tenant
 
+        # Statuses first, so Overdue Payment holds billing as the rules say
+        from apps.billing.payments import sync_overdue_status
+
+        sync_overdue_status(tenant)
+
         sub_ids = Subscription.objects.active().filter(tenant=tenant, next_billing_date__lte=until).exclude(
             status__in=[Subscription.Status.DRAFT, Subscription.Status.EXPIRED]
         ).values_list("pk", flat=True)
