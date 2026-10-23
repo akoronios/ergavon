@@ -111,12 +111,19 @@ MEDIA_ROOT = env("MEDIA_ROOT", default=str(BASE_DIR / "media"))  # attachments l
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
 
+# Full origins of the site, e.g. https://ergavon.example.com (needed for admin forms over HTTPS)
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
 if not DEBUG:
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=3600)
+    # Plesk redirects HTTP to HTTPS itself and Passenger passes the scheme straight
+    # to Django, so both are off by default. Turn them on only behind a proxy that
+    # sends X-Forwarded-Proto, otherwise every request loops on a redirect.
+    if env.bool("BEHIND_PROXY", default=False):
+        SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
 
 
 # ---------------------------------------------------------------- admin (Unfold)
