@@ -1,0 +1,74 @@
+# ERGAVON for local testing (Windows, macOS or Linux with Docker Desktop).
+#
+#   docker compose up --build        start everything, then open http://localhost:8000
+#   docker compose down              stop (data is kept)
+#   docker compose down -v           stop and delete all data
+#
+# The values below are for a local test machine only. Never use them on a server.
+
+name: ergavon
+
+x-app-env: &app-env
+  DEBUG: "True"
+  SECRET_KEY: "local-test-only-not-for-production"
+  ALLOWED_HOSTS: "localhost,127.0.0.1"
+  CSRF_TRUSTED_ORIGINS: "http://localhost:8000,http://127.0.0.1:8000"
+  DATABASE_URL: "postgres://ergavon:ergavon@db:5432/ergavon"
+  MEDIA_ROOT: "/app/media"
+  TZ: "Europe/Athens"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ergavon
+      POSTGRES_USER: ergavon
+      POSTGRES_PASSWORD: ergavon
+      TZ: "Europe/Athens"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ergavon -d ergavon"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    build: .
+    image: ergavon:local
+    environment:
+      <<: *app-env
+      ERGAVON_TENANT_NAME: "WEDEVA"
+      ERGAVON_TENANT_SLUG: "wedeva"
+      ERGAVON_ADMIN_USER: "admin"
+      ERGAVON_ADMIN_PASSWORD: "ergavon-local"
+      ERGAVON_ADMIN_EMAIL: "admin@example.com"
+      WEB_CONCURRENCY: "2"
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    image: ergavon:local
+    command: ["python", "docker/scheduler.py"]
+    environment:
+      <<: *app-env
+      BILLING_TIME: "06:10"
+      BILLING_TIMEZONE: "Europe/Athens"
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:

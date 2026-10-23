@@ -35,7 +35,12 @@ columns, soft delete for business records, no deletes for financial records,
 - ΑΦΜ is validated by check digit for Greek accounts
 - Account search ignores Greek accents and case; Greeklish helper included
 
-## Run locally
+## Run locally with Docker (easiest)
+
+`docker compose up --build`, then open http://localhost:8000 (user `admin`, password
+`ergavon-local`, local only). Windows step-by-step: [docs/DOCKER_LOCAL.md](docs/DOCKER_LOCAL.md).
+
+## Run locally without Docker
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
