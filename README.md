@@ -46,7 +46,7 @@ python manage.py migrate
 python manage.py seed_tenant "WEDEVA" wedeva
 python manage.py createsuperuser
 python manage.py runserver        # admin at http://localhost:8000/admin/
-python manage.py test apps        # 37 tests, needs PostgreSQL
+python manage.py test apps        # 56 tests, needs PostgreSQL
 ```
 
 `seed_tenant` creates the five roles, Greek VAT categories (24, 13, 6, island
@@ -75,7 +75,32 @@ Scheduled runs (admin), where an Admin can retry a failed run.
 - A draft line carries the project only when the subscription belongs to exactly one project
 - An error on one subscription or domain is recorded and never blocks the others
 
+## Billing drafts and payments
+
+Services in `apps/billing/lifecycle.py` and `apps/billing/payments.py`; the
+admin offers approve, reopen, send, reissue and payment auto-allocation.
+
+- Draft → Approved → Sent to accounting → Invoiced. Approved can be reopened to Draft.
+- Invoiced needs the external invoice number and date, marks the items Billed and
+  locks the draft; only payments can still be allocated.
+- Void (Draft, Approved or Sent, with a reason, no payments allocated) returns the
+  items to Uninvoiced; Reissue puts them on a new draft.
+- Lines and totals are frozen once a draft leaves Draft.
+- Payments are allocated to one or more drafts, partially if needed, never beyond
+  the payment or the amount outstanding. Unallocated money is the customer's credit
+  and can be applied to later drafts.
+- A subscription turns Overdue Payment while one of its drafts is past due and
+  unpaid, and back to Active when paid; this is checked at every billing run and
+  every allocation.
+- Approve, send, invoice, void, reissue and payments need the Finance or Admin role.
+
+## Audit log
+
+Every create, update, delete and status change on ERGAVON records is written to
+the audit log with the user and the old and new values of the changed fields.
+Approvals, voids and allocations are labelled as such.
+
 ## Not built yet
 
-Reminder run, audit-log writer, permissions per role, API, CSV export
-mapping, PDFs and the React UI. Jira links and myDATA come after the beta.
+Reminder run, API, PDFs and the React UI. Accounting export is out of scope for
+now. Jira links and myDATA come after the beta.

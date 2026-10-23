@@ -6,3 +6,8 @@ class PlatformConfig(AppConfig):
     name = "apps.platform"
     label = "platform"
     verbose_name = "Platform"
+
+    def ready(self):
+        from apps.platform import audit
+
+        audit.connect()

@@ -95,9 +95,10 @@ class AuditLog(UUIDModel):
 
     tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, related_name="+")
     content_type = models.ForeignKey(ContentType, on_delete=models.PROTECT)
-    object_id = models.UUIDField()
+    object_id = models.CharField(max_length=64)  # UUID or integer key
     record = GenericForeignKey("content_type", "object_id")
     action = models.CharField(max_length=16, choices=Action.choices)
+    note = models.CharField(max_length=255, blank=True)
     user = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )

@@ -122,15 +122,22 @@ class BillingRun(TestCase):
         run_billing(self.t, until=date(2026, 3, 1))
         self.assertEqual(list(BillableItem.objects.values_list("period_start", flat=True)), [date(2026, 3, 1)])
 
-    def test_overdue_holds_then_catches_up_when_active(self):
-        s = self.sub(status="overdue_payment")
+    def test_overdue_holds_then_catches_up_when_paid(self):
+        s = self.sub()
+        run_billing(self.t, until=date(2026, 1, 1))
+        # The January draft is approved and now past due, unpaid
+        BillingDraft.objects.filter(account=self.a).update(status="approved", due_date=date(2026, 1, 15))
         run_billing(self.t, until=date(2026, 2, 1))
-        self.assertEqual(BillableItem.objects.count(), 0)
         s.refresh_from_db()
-        self.assertEqual(s.next_billing_date, date(2026, 1, 1))
-        s.status = "active"
-        s.save()
+        self.assertEqual(s.status, "overdue_payment")
+        self.assertEqual(BillableItem.objects.count(), 1)  # February held
+        self.assertEqual(s.next_billing_date, date(2026, 2, 1))
+        # Paid in full: back to Active, February is caught up
+        draft = BillingDraft.objects.get(account=self.a)
+        BillingDraft.objects.filter(pk=draft.pk).update(outstanding=0, payment_status="paid")
         run_billing(self.t, until=date(2026, 2, 1))
+        s.refresh_from_db()
+        self.assertEqual(s.status, "active")
         self.assertEqual(BillableItem.objects.count(), 2)
 
     def test_overdue_kept_active_keeps_billing(self):
